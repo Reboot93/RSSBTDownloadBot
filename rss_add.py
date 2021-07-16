@@ -1,4 +1,4 @@
-#import rss_check
+# import rss_check
 import MySQLdb
 import time
 import telepot
@@ -14,6 +14,31 @@ conn = MySQLdb.connect(
     db='RSS_Sub',
     charset='utf8', )
 
+
+def AddTable(name):
+    try:
+        cur = conn.cursor()
+        sql = "CREATE TABLE %s (Num INT(11), UNIQUE(Num), Link TEXT, Magnet TEXT, State INT(11) DEFAULT 0,)" % (name)
+        print(sql)
+        cur.execute(sql)
+        conn.commit()
+        del sql
+        return 'ok'
+    except:
+        print('创建"%s"数据库失败') % (name)
+        return 'MySQL Error'
+
+
+def  DelTable(name):
+    try:
+        cur = conn.cursor()
+        sql = "DROP TABLE %s" % (name)
+        cur.execute()
+        conn.commit()
+        del sql
+        return 'ok'
+    except:
+        print('')
 
 
 def Sub_Add(name, link, nowEP, lastEP):
@@ -52,7 +77,7 @@ def ShowSubList(format):
                               '--Rss订阅链接：%s\n' \
                               '--当前集数：%s\n' \
                               '--最终集数：%s\n' \
-                              % (a, name, link, nowEP, lastEP)
+                       % (a, name, link, nowEP, lastEP)
             List = List + '========================'
             del a, sql
             return List
@@ -80,7 +105,7 @@ def SubDel(name):
 
 
 class RssAdd(telepot.helper.ChatHandler):
-    global name, link, nowEP, lastEP
+    global name, link, nowEP, lastEP, up, EpRegular, CHS_TRegular
 
     def __init__(self, *args, **kwargs):
         super(RssAdd, self).__init__(*args, **kwargs)
@@ -127,13 +152,25 @@ class RssAdd(telepot.helper.ChatHandler):
             self.State = 'SetRssNowEP'
             self.sender.sendMessage('请输入该番剧已保存集数')
         elif self.State == 'SetRssNowEP':
-            self.nowEP = msg['text']
+            try:
+                i = int(msg['text'])
+            except:
+                self.State = 'SetRssNowEP'
+                self.sender.sendMessage('”已保存集数“-Error\n应为纯数字（INT）\n----请重新输入：')
+                return
+            self.nowEP = i
             print('Set Rss NowEP: %s' % self.nowEP)
             self.State = 'SetRssLastEP'
             self.sender.sendMessage('请输入该番剧的最终集数')
         elif self.State == 'SetRssLastEP':
             mark_up = ReplyKeyboardMarkup(keyboard=[['确定'], ['取消']], one_time_keyboard=True, resize_keyboard=True)
-            self.lastEP = msg['text']
+            try:
+                i = int(msg['text'])
+            except:
+                self.State = 'SetRssLastEP'
+                self.sender.sendMessage('”最终集数“应为纯数字（INT）\n----请重新输入：')
+                return
+            self.lastEP = i
             print('Set Rss LastEP: %s' % self.lastEP)
             self.State = 'SetRssCheck'
             self.sender.sendMessage(
@@ -149,9 +186,7 @@ class RssAdd(telepot.helper.ChatHandler):
                     self.sender.sendMessage(ShowSubList(True))
                 else:
                     print('SubRss订阅添加失败')
-                    self.sender.sendMessage('番剧订阅添加失败，请检查提交的信息/数据库状态/运行环境')
-
-                del i
+                    self.sender.sendMessage('番剧订阅添加失败')
             else:
                 self.sender.sendMessage('取消操作')
             self.State = 'normal'
